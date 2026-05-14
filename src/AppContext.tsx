@@ -75,19 +75,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .eq('id', supabaseUser.id)
           .single();
         
+        const isHardcodedAdmin = supabaseUser.email && ADMIN_EMAILS.includes(supabaseUser.email.toLowerCase());
+        
         if (profile) {
+          const currentRole = profile.role;
+          const targetRole = isHardcodedAdmin ? 'admin' : currentRole;
+
+          // Si es admin por lista pero no en DB, intentamos actualizar la DB
+          if (isHardcodedAdmin && currentRole !== 'admin') {
+            console.log('Sincronizando rol de admin en DB...');
+            await supabase
+              .from('profiles')
+              .update({ role: 'admin' })
+              .eq('id', supabaseUser.id);
+          }
+
           setUser({
             id: profile.id,
             email: profile.email,
             name: profile.name || supabaseUser.email?.split('@')[0] || 'Usuario',
-            role: (ADMIN_EMAILS.includes(profile.email.toLowerCase()) ? 'admin' : profile.role) as any,
+            role: targetRole as any,
             phone: profile.phone,
             address: profile.address,
             taxId: profile.tax_id
           });
+        } else if (isHardcodedAdmin) {
+          // Si no hay perfil pero es admin, lo creamos
+          console.log('Creando perfil de admin inicial...');
+          const adminProfile = {
+            id: supabaseUser.id,
+            email: supabaseUser.email,
+            name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split('@')[0],
+            role: 'admin'
+          };
+          
+          await supabase.from('profiles').upsert(adminProfile);
+          
+          setUser({
+            id: adminProfile.id,
+            email: adminProfile.email || '',
+            name: adminProfile.name || 'Admin',
+            role: 'admin'
+          });
         }
       } catch (err) {
-        console.error('Error fetching profile:', err);
+        console.error('Error fetching/syncing profile:', err);
       }
     };
 

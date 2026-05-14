@@ -14,6 +14,7 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
   const [orders, setOrders] = useState<Order[]>([]);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -21,6 +22,13 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
       if (activeTab === 'sales') fetchOrders();
     }
   }, [isOpen, activeTab]);
+
+  useEffect(() => {
+    if (feedback) {
+      const timer = setTimeout(() => setFeedback(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedback]);
 
   const fetchProducts = async () => {
     const { data, error } = await supabase
@@ -86,36 +94,68 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingProduct) return;
+    
     setLoading(true);
+    setFeedback(null);
 
-    const productData = {
-      name: editingProduct?.name,
-      description: editingProduct?.description,
-      price: editingProduct?.price,
-      wholesale_price: editingProduct?.wholesalePrice,
-      category: editingProduct?.category,
-      image: editingProduct?.image,
-      stock: editingProduct?.stock || 0
+    const price = Number(editingProduct.price || 0);
+    const stock = Number(editingProduct.stock || 0);
+    const wholesalePrice = editingProduct.wholesalePrice ? Number(editingProduct.wholesalePrice) : null;
+
+    const pData: any = {
+      name: editingProduct.name?.trim(),
+      description: editingProduct.description?.trim(),
+      price: price,
+      wholesale_price: wholesalePrice,
+      category: editingProduct.category,
+      image: editingProduct.image?.trim(),
+      stock: stock
     };
 
+    if (!pData.name || !pData.description || !pData.image) {
+      setFeedback({ type: 'error', message: 'Por favor completa todos los campos obligatorios' });
+      setLoading(false);
+      return;
+    }
+
     try {
-      if (editingProduct?.id) {
+      console.log('Tentando salvar producto:', pData);
+
+      if (editingProduct.id) {
+        // UPDATE
         const { error } = await supabase
           .from('products')
-          .update(productData)
+          .update(pData)
           .eq('id', editingProduct.id);
+        
         if (error) throw error;
+        setFeedback({ type: 'success', message: 'Producto actualizado con éxito' });
       } else {
+        // INSERT
         const { error } = await supabase
           .from('products')
-          .insert([productData]);
+          .insert([pData]);
+        
         if (error) throw error;
+        setFeedback({ type: 'success', message: 'Producto añadido con éxito' });
       }
       
-      setEditingProduct(null);
-      fetchProducts();
-    } catch (err) {
+      // Limpiar y refrescar
+      setTimeout(() => {
+        setEditingProduct(null);
+        fetchProducts();
+      }, 1500);
+
+    } catch (err: any) {
       console.error('Error saving product:', err);
+      let errorMsg = err.message || 'Error al guardar el producto';
+      
+      if (err.code === '42501') {
+        errorMsg = 'Error 42501: Permiso denegado en la base de datos. Tu usuario no tiene rol de "admin" en Supabase. Por favor, ejecuta el comando SQL en tu panel de Supabase o contacta al desarrollador.';
+      }
+      
+      setFeedback({ type: 'error', message: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -182,7 +222,10 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
               <div className="flex gap-4">
                 {activeTab === 'products' ? (
                   <button 
-                    onClick={() => setEditingProduct({ name: '', price: 0, description: '', category: 'Detergentes', image: '', stock: 0 })}
+                    onClick={() => {
+                      setFeedback(null);
+                      setEditingProduct({ name: '', price: 0, description: '', category: 'Detergentes', image: '', stock: 0 });
+                    }}
                     className="premium-btn bg-primary-green text-white flex items-center gap-2"
                   >
                     <Plus className="w-5 h-5" /> Nuevo Producto
@@ -331,7 +374,10 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => setEditingProduct(product)} className="p-2 text-slate-400 hover:text-primary-green transition-colors">
+                          <button onClick={() => {
+                            setFeedback(null);
+                            setEditingProduct(product);
+                          }} className="p-2 text-slate-400 hover:text-primary-green transition-colors">
                             <Edit2 className="w-5 h-5" />
                           </button>
                           <button onClick={() => handleDelete(product.id)} className="p-2 text-slate-400 hover:text-primary-red transition-colors">
@@ -368,21 +414,19 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                         <div className="col-span-2 space-y-2">
                           <label className="text-sm font-bold text-slate-400 uppercase">Nombre del Producto</label>
                           <input 
-                            required
                             type="text" 
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-green"
-                            value={editingProduct.name}
+                            value={editingProduct.name || ''}
                             onChange={e => setEditingProduct({...editingProduct, name: e.target.value})}
                           />
                         </div>
                         <div className="space-y-2">
                           <label className="text-sm font-bold text-slate-400 uppercase">Precio Normal ($)</label>
                           <input 
-                            required
                             type="number" 
                             step="0.01"
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-green"
-                            value={editingProduct.price !== undefined && !isNaN(editingProduct.price) ? editingProduct.price : ''}
+                            value={editingProduct.price !== undefined && editingProduct.price !== null ? editingProduct.price : ''}
                             onChange={e => {
                               const val = parseFloat(e.target.value);
                               setEditingProduct({...editingProduct, price: isNaN(val) ? 0 : val});
@@ -397,7 +441,7 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                             type="number" 
                             step="0.01"
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-yellow"
-                            value={editingProduct.wholesalePrice !== undefined && !isNaN(editingProduct.wholesalePrice as number) ? editingProduct.wholesalePrice : ''}
+                            value={editingProduct.wholesalePrice !== undefined && editingProduct.wholesalePrice !== null ? editingProduct.wholesalePrice : ''}
                             onChange={e => {
                               const val = parseFloat(e.target.value);
                               setEditingProduct({...editingProduct, wholesalePrice: isNaN(val) ? undefined : val});
@@ -408,40 +452,58 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                           <label className="text-sm font-bold text-slate-400 uppercase">Categoría</label>
                           <select 
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-green"
-                            value={editingProduct.category}
+                            value={editingProduct.category || 'Detergentes'}
                             onChange={e => setEditingProduct({...editingProduct, category: e.target.value as Category})}
                           >
                             {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                           </select>
                         </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-400 uppercase">Stock Disponible</label>
+                          <input 
+                            type="number" 
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-green"
+                            value={editingProduct.stock !== undefined && editingProduct.stock !== null ? editingProduct.stock : ''}
+                            onChange={e => {
+                              const val = parseInt(e.target.value);
+                              setEditingProduct({...editingProduct, stock: isNaN(val) ? 0 : val});
+                            }}
+                          />
+                        </div>
                         <div className="col-span-2 space-y-2">
                           <label className="text-sm font-bold text-slate-400 uppercase">URL de la Imagen</label>
                           <input 
-                            required
                             type="text" 
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-green"
-                            value={editingProduct.image}
+                            value={editingProduct.image || ''}
                             onChange={e => setEditingProduct({...editingProduct, image: e.target.value})}
                           />
                         </div>
                         <div className="col-span-2 space-y-2">
                           <label className="text-sm font-bold text-slate-400 uppercase">Descripción</label>
                           <textarea 
-                            required
                             rows={3}
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-green resize-none"
-                            value={editingProduct.description}
+                            value={editingProduct.description || ''}
                             onChange={e => setEditingProduct({...editingProduct, description: e.target.value})}
                           />
                         </div>
                       </div>
 
+                      {feedback && (
+                        <div className={`p-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                          {feedback.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                          {feedback.message}
+                        </div>
+                      )}
+
                       <button 
+                        type="submit"
                         disabled={loading}
                         className="w-full premium-btn bg-primary-green text-white shadow-lg shadow-green-200 flex items-center justify-center gap-2 h-14"
                       >
                         {loading ? <Loader2 className="animate-spin" /> : <Save className="w-5 h-5" />}
-                        Guardar Cambios
+                        {loading ? 'Guardando...' : 'Guardar Cambios'}
                       </button>
                     </form>
                   </motion.div>

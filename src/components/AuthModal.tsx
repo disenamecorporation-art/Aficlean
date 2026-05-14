@@ -54,11 +54,14 @@ export const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
 
         if (data?.user) {
           try {
+            const ADMIN_EMAILS = ['corplegaint5@gmail.com', 'disenamecorporation@gmail.com'];
+            const isAdminEmail = ADMIN_EMAILS.includes(email.toLowerCase());
+
             const profileData = {
               id: data.user.id,
               email,
               name,
-              role: isWholesale ? 'wholesale' : 'user',
+              role: isAdminEmail ? 'admin' : (isWholesale ? 'wholesale' : 'user'),
               phone,
               address,
               tax_id: taxId
