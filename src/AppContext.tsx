@@ -25,7 +25,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const ADMIN_EMAILS = ['corplegaint5@gmail.com', 'disenamecorporation@gmail.com'];
+const ADMIN_EMAILS = ['corplegaint5@gmail.com', 'disenamecorporation@gmail.com', 'aficleanweb@gmail.com'];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);

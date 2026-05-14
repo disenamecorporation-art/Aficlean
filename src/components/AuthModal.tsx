@@ -54,7 +54,7 @@ export const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
 
         if (data?.user) {
           try {
-            const ADMIN_EMAILS = ['corplegaint5@gmail.com', 'disenamecorporation@gmail.com'];
+            const ADMIN_EMAILS = ['corplegaint5@gmail.com', 'disenamecorporation@gmail.com', 'aficleanweb@gmail.com'];
             const isAdminEmail = ADMIN_EMAILS.includes(email.toLowerCase());
 
             const profileData = {
