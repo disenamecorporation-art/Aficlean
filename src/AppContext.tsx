@@ -20,12 +20,14 @@ interface AppContextType {
   setView: (view: 'home' | 'store') => void;
   storeCategory: Category | 'All';
   setStoreCategory: (cat: Category | 'All') => void;
+  isInitialized: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [exchangeRate, setExchangeRate] = useState<number>(45.45);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -36,26 +38,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Supabase Auth Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        // Fetch profile data
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile) {
-          setUser({
-            id: profile.id,
-            email: profile.email,
-            name: profile.name || session.user.email?.split('@')[0] || 'Usuario',
-            role: profile.role as any,
-            phone: profile.phone,
-            address: profile.address,
-            taxId: profile.tax_id
-          });
+        try {
+          // Fetch profile data
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile) {
+            setUser({
+              id: profile.id,
+              email: profile.email,
+              name: profile.name || session.user.email?.split('@')[0] || 'Usuario',
+              role: profile.role as any,
+              phone: profile.phone,
+              address: profile.address,
+              taxId: profile.tax_id
+            });
+          } else if (error && error.code === 'PGRST116') {
+            // Profile doesn't exist yet, but user is authenticated
+            setUser({
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuario',
+              role: 'user'
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching profile:', err);
+        } finally {
+          setIsInitialized(true);
         }
       } else {
         setUser(null);
+        setIsInitialized(true);
       }
     });
 
@@ -124,7 +141,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       view,
       setView,
       storeCategory,
-      setStoreCategory
+      setStoreCategory,
+      isInitialized
     }}>
       {children}
     </AppContext.Provider>

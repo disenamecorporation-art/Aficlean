@@ -8,7 +8,7 @@ export const Navbar = ({ onOpenAuth, onOpenCart, onOpenAdmin }: { onOpenAuth: ()
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await supabase.auth.signOut();
     setUser(null);
   };
 

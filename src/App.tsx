@@ -13,7 +13,7 @@ import { Store } from './views/Store';
 import { supabase } from './lib/supabase';
 import { Product, Category } from './types';
 import { motion } from 'motion/react';
-import { Sparkles, Trash2, Edit2, Search, Filter, Droplets, ScrollText, Eraser as Brush, Package } from 'lucide-react';
+import { Sparkles, Trash2, Edit2, Search, Filter, Droplets, ScrollText, Eraser as Brush, Package, Loader2 } from 'lucide-react';
 
 const categoryMap: { name: Category; icon: any }[] = [
   { name: 'Detergentes', icon: Droplets },
@@ -25,7 +25,7 @@ const categoryMap: { name: Category; icon: any }[] = [
 ];
 
 function MainContent() {
-  const { view, setView, storeCategory, setStoreCategory } = useAppContext();
+  const { view, setView, storeCategory, setStoreCategory, isInitialized } = useAppContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -63,6 +63,17 @@ function MainContent() {
                          p.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <img src="https://i.postimg.cc/0NvYq3b2/LOGOOFICIALWEB.png" alt="Logo" className="h-16 w-auto animate-pulse" />
+          <Loader2 className="w-8 h-8 text-primary-green animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
