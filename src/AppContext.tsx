@@ -16,8 +16,8 @@ interface AppContextType {
   formatPrice: (usd: number) => { usd: string; vef: string };
   selectedProduct: Product | null;
   setSelectedProduct: (product: Product | null) => void;
-  view: 'home' | 'store';
-  setView: (view: 'home' | 'store') => void;
+  view: 'home' | 'store' | 'dashboard' | 'profile';
+  setView: (view: 'home' | 'store' | 'dashboard' | 'profile') => void;
   storeCategory: Category | 'All';
   setStoreCategory: (cat: Category | 'All') => void;
   isInitialized: boolean;
@@ -33,7 +33,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [exchangeRate, setExchangeRate] = useState<number>(45.45);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [view, setView] = useState<'home' | 'store'>('home');
+  const [view, setView] = useState<'home' | 'store' | 'dashboard' | 'profile'>('home');
   const [storeCategory, setStoreCategory] = useState<Category | 'All'>('All');
 
   useEffect(() => {

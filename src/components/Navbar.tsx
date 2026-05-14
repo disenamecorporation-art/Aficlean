@@ -79,8 +79,20 @@ export const Navbar = ({ onOpenAuth, onOpenCart, onOpenAdmin }: { onOpenAuth: ()
 
             {user ? (
               <div className="flex items-center gap-3">
-                <span className="text-xs font-black text-slate-700 hidden sm:block uppercase tracking-tighter">Hola, {user.name.split(' ')[0]}</span>
-                <button onClick={handleLogout} className="p-3 hover:bg-red-50 text-red-600 rounded-2xl transition-colors">
+                <button 
+                  onClick={() => setView('dashboard')}
+                  className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${view === 'dashboard' ? 'bg-primary-green text-white shadow-lg shadow-green-100' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Panel
+                </button>
+                <button 
+                  onClick={() => setView('profile')}
+                  className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${view === 'profile' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Perfil
+                </button>
+                <span className="text-xs font-black text-slate-700 hidden lg:block uppercase tracking-tighter ml-2">Hola, {user.name.split(' ')[0]}</span>
+                <button onClick={handleLogout} className="p-3 hover:bg-red-50 text-red-600 rounded-2xl transition-colors ml-1">
                   <LogOut className="w-6 h-6" />
                 </button>
               </div>
