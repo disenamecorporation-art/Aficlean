@@ -38,41 +38,41 @@ export const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             }
           }
         });
+        
         if (authError) throw authError;
 
-        if (data.user) {
-          // Manually update profile (trigger might not be ready)
+        if (data?.user) {
+          // Intentar crear el perfil
+          const profileData = {
+            id: data.user.id,
+            email,
+            name,
+            role: isWholesale ? 'wholesale' : 'user',
+            phone,
+            address,
+            tax_id: taxId
+          };
+
           const { error: profileError } = await supabase
             .from('profiles')
-            .update({
-              name,
-              role: isWholesale ? 'wholesale' : 'user',
-              phone,
-              address,
-              tax_id: taxId
-            })
-            .eq('id', data.user.id);
+            .upsert(profileData);
           
           if (profileError) {
-            // Profile entry might not exist yet if trigger failed or hasn't run.
-            // Insert it then.
-            await supabase.from('profiles').insert([{
-              id: data.user.id,
-              email,
-              name,
-              role: isWholesale ? 'wholesale' : 'user',
-              phone,
-              address,
-              tax_id: taxId
-            }]);
+            console.error('Error creando perfil:', profileError);
+            // No lanzamos error aquí para permitir que el usuario al menos vea el mensaje de éxito de registro
           }
         }
 
         setIsLogin(true);
-        setError('Registro exitoso. Por favor revisa tu correo o inicia sesión.');
+        setError('Registro exitoso. ¡Bienvenido a Afi Clean!');
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('Auth Error:', err);
+      if (err.message === 'Failed to fetch') {
+        setError('Error de conexión: Revisa tu internet o la configuración de Supabase.');
+      } else {
+        setError(err.message || 'Ocurrió un error inesperado');
+      }
     } finally {
       setLoading(false);
     }
