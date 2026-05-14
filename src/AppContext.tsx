@@ -25,6 +25,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const ADMIN_EMAILS = ['corplegaint5@gmail.com', 'disenamecorporation@gmail.com'];
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -35,45 +37,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [storeCategory, setStoreCategory] = useState<Category | 'All'>('All');
 
   useEffect(() => {
+    // Immediate initialization fallback
+    const safetyTimeout = setTimeout(() => {
+      setIsInitialized(true);
+    }, 10000);
+
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const isHardcodedAdmin = session.user.email && ADMIN_EMAILS.includes(session.user.email.toLowerCase());
+          // Initialize with basic info first
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuario',
+            role: isHardcodedAdmin ? 'admin' : 'user'
+          });
+          // Then fetch full profile in background
+          fetchUserProfile(session.user);
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+      } finally {
+        setIsInitialized(true);
+        clearTimeout(safetyTimeout);
+      }
+    };
+
+    const fetchUserProfile = async (supabaseUser: any) => {
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', supabaseUser.id)
+          .single();
+        
+        if (profile) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            name: profile.name || supabaseUser.email?.split('@')[0] || 'Usuario',
+            role: (ADMIN_EMAILS.includes(profile.email.toLowerCase()) ? 'admin' : profile.role) as any,
+            phone: profile.phone,
+            address: profile.address,
+            taxId: profile.tax_id
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+      }
+    };
+
+    initializeAuth();
+
     // Supabase Auth Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        try {
-          // Fetch profile data
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (profile) {
-            setUser({
-              id: profile.id,
-              email: profile.email,
-              name: profile.name || session.user.email?.split('@')[0] || 'Usuario',
-              role: profile.role as any,
-              phone: profile.phone,
-              address: profile.address,
-              taxId: profile.tax_id
-            });
-          } else if (error && error.code === 'PGRST116') {
-            // Profile doesn't exist yet, but user is authenticated
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuario',
-              role: 'user'
-            });
-          }
-        } catch (err) {
-          console.error('Error fetching profile:', err);
-        } finally {
-          setIsInitialized(true);
+        const isHardcodedAdmin = session.user.email && ADMIN_EMAILS.includes(session.user.email.toLowerCase());
+        // Basic update
+        if (event === 'SIGNED_IN') {
+           setUser(prev => prev || {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuario',
+            role: isHardcodedAdmin ? 'admin' : 'user'
+          });
+          fetchUserProfile(session.user);
         }
       } else {
         setUser(null);
-        setIsInitialized(true);
       }
+      setIsInitialized(true);
     });
 
     // Fetch real-time BCV rate

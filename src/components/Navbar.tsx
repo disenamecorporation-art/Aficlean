@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShoppingCart, User as UserIcon, LogOut, Menu, X, Trash2, Plus, Minus } from 'lucide-react';
 import { useAppContext } from '../AppContext';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const Navbar = ({ onOpenAuth, onOpenCart, onOpenAdmin }: { onOpenAuth: () => void, onOpenCart: () => void, onOpenAdmin: () => void }) => {
@@ -58,8 +59,12 @@ export const Navbar = ({ onOpenAuth, onOpenCart, onOpenAdmin }: { onOpenAuth: ()
 
           <div className="flex items-center gap-4">
             {user?.role === 'admin' && (
-              <button onClick={onOpenAdmin} className="text-[10px] bg-primary-green text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest hover:shadow-lg shadow-green-100 transition-all hidden sm:block active:scale-95">
-                Admin
+              <button 
+                onClick={onOpenAdmin} 
+                className="text-[11px] bg-black text-[#FFEB00] px-6 py-2.5 rounded-xl font-black uppercase tracking-widest hover:bg-slate-900 transition-all flex items-center gap-2 shadow-xl shadow-yellow-100/50 active:scale-95"
+              >
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                Panel Admin
               </button>
             )}
             

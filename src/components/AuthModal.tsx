@@ -20,13 +20,20 @@ export const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
 
     try {
       if (isLogin) {
         const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-        if (authError) throw authError;
+        if (authError) {
+          setError(authError.message);
+          setLoading(false);
+          return;
+        }
+        
+        // El AppContext se encargará de actualizar el usuario vía onAuthStateChange
         onClose();
       } else {
         const { data, error: authError } = await supabase.auth.signUp({ 
@@ -34,46 +41,48 @@ export const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
           password,
           options: {
             data: {
-              name
+              name: name
             }
           }
         });
         
-        if (authError) throw authError;
+        if (authError) {
+          setError(authError.message);
+          setLoading(false);
+          return;
+        }
 
         if (data?.user) {
-          // Intentar crear el perfil
-          const profileData = {
-            id: data.user.id,
-            email,
-            name,
-            role: isWholesale ? 'wholesale' : 'user',
-            phone,
-            address,
-            tax_id: taxId
-          };
+          try {
+            const profileData = {
+              id: data.user.id,
+              email,
+              name,
+              role: isWholesale ? 'wholesale' : 'user',
+              phone,
+              address,
+              tax_id: taxId
+            };
 
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert(profileData);
-          
-          if (profileError) {
-            console.error('Error creando perfil:', profileError);
-            // No lanzamos error aquí para permitir que el usuario al menos vea el mensaje de éxito de registro
+            await supabase
+              .from('profiles')
+              .upsert(profileData);
+          } catch (profileErr) {
+            console.error('Error in background profile creation:', profileErr);
           }
         }
 
+        // Si el correo fue enviado o la sesión ya se inició
         setIsLogin(true);
-        setError('Registro exitoso. ¡Bienvenido a Afi Clean!');
+        setError('Registro exitoso. ¡Inicia sesión con tus credenciales!');
+        setPassword(''); // Clear password for login
       }
     } catch (err: any) {
       console.error('Auth Error:', err);
-      if (err.message === 'Failed to fetch') {
-        setError('Error de conexión: Revisa tu internet o la configuración de Supabase.');
-      } else {
-        setError(err.message || 'Ocurrió un error inesperado');
-      }
+      setError(err.message || 'Error de conexión');
     } finally {
+      // Solo quitamos el loading si ocurrió un error o estamos en registro
+      // Si el login fue exitoso, el modal se cerrará y no importa el loading
       setLoading(false);
     }
   };
