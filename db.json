@@ -1,0 +1,44 @@
+{
+  "users": [
+    {
+      "id": "admin-1",
+      "email": "admin@aficlean.ve",
+      "password": "$2b$10$cg8jOTkdQPcQ6fR4Bq3j/.TDXKqFav2qhydb3JYqoVUS7/63q8jjS",
+      "role": "admin",
+      "name": "Admin Afi Clean"
+    }
+  ],
+  "products": [
+    {
+      "id": "1",
+      "name": "Detergente Premium Blue",
+      "description": "Detergente líquido de alta concentración para ropa blanca y de color.",
+      "price": 15.5,
+      "wholesalePrice": 12.5,
+      "category": "Detergentes",
+      "image": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800",
+      "stock": 50
+    },
+    {
+      "id": "2",
+      "name": "Papel Higiénico Soft Luxe",
+      "description": "Papel higiénico de 4 hojas, suavidad extrema y máxima absorción.",
+      "price": 8.2,
+      "wholesalePrice": 6.5,
+      "category": "Papel Higiénico",
+      "image": "https://images.unsplash.com/photo-1584622781564-1d987f7333c1?auto=format&fit=crop&q=80&w=800",
+      "stock": 100
+    },
+    {
+      "id": "3",
+      "name": "Cepillo Multiuso Ergonómico",
+      "description": "Utensilio de limpieza con cerdas resistentes para cualquier superficie.",
+      "price": 5.4,
+      "wholesalePrice": 4.2,
+      "category": "Utensilios de Limpieza",
+      "image": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800",
+      "stock": 30
+    }
+  ],
+  "orders": []
+}

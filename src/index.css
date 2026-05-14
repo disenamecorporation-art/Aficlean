@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary-green: #024510;
+  --color-primary-yellow: #ffeb00;
+  --color-primary-red: #DC2626;
+  --color-clean-bg: #F8FAFC;
+}
+
+@layer base {
+  body {
+    @apply bg-clean-bg text-slate-800 font-sans;
+  }
+}
+
+.glass-nav {
+  @apply bg-white/95 backdrop-blur-md border-b border-slate-200;
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+}
+
+.premium-btn {
+  @apply px-6 py-3 rounded-xl font-bold transition-all duration-300 active:scale-95 text-sm uppercase tracking-tight;
+}
+
+.card-hover {
+  @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  animation: marquee 20s linear infinite;
+}
+
+.cleaning-sparkle {
+  position: relative;
+}
+
+.cleaning-sparkle::after {
+  content: "✨";
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  animation: sparkle 2s infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
