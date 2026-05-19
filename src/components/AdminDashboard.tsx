@@ -9,10 +9,12 @@ import { supabase } from '../lib/supabase';
 import { Product, Category, Order } from '../types';
 
 export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'products' | 'sales'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'sales' | 'users'>('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
+  const [editingProfile, setEditingProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -20,8 +22,44 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
     if (isOpen) {
       if (activeTab === 'products') fetchProducts();
       if (activeTab === 'sales') fetchOrders();
+      if (activeTab === 'users') fetchProfiles();
     }
   }, [isOpen, activeTab]);
+
+  const fetchProfiles = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('name');
+    
+    if (!error) setProfiles(data || []);
+  };
+
+  const handleUpdateProfile = async (id: string, updates: any) => {
+    setLoading(true);
+    // Limpiar el nombre si el usuario le puso " Vendedor" manualmente
+    if (updates.name) {
+      updates.name = updates.name.replace(' Vendedor', '').trim();
+    }
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', id);
+    
+    if (error) {
+      let msg = error.message;
+      if (error.code === '23514' || error.message.includes('profiles_role_check')) {
+        msg = "ERROR DE BASE DE DATOS: Rol no permitido. Por favor, ejecuta el código SQL en Supabase para permitir los roles adecuados.";
+      }
+      setFeedback({ type: 'error', message: msg });
+    } else {
+      setFeedback({ type: 'success', message: 'Perfil actualizado correctamente' });
+      fetchProfiles();
+      setEditingProfile(null);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (feedback) {
@@ -59,12 +97,17 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
       
       if (Array.isArray(data)) {
         const mappedOrders = data.map((o: any) => ({
-          ...o,
+          id: o.id,
           customerId: o.customer_id,
           customerName: o.customer_name,
           sellerId: o.seller_id,
           sellerName: o.seller_name,
-          sellerEarnings: o.seller_earnings
+          total: Number(o.total || 0),
+          status: o.status,
+          createdAt: o.created_at,
+          commission: Number(o.commission || 0),
+          sellerEarnings: Number(o.seller_earnings || 0),
+          items: o.items || []
         }));
         setOrders(mappedOrders);
       } else {
@@ -77,19 +120,37 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
   };
 
   const handleConfirmOrder = async (orderId: string) => {
-    const commissionRate = 0.02;
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    const { error } = await supabase
-      .from('orders')
-      .update({ 
-        status: 'completed',
-        seller_earnings: order.total * commissionRate
-      })
-      .eq('id', orderId);
+    setLoading(true);
+    try {
+      // Use the commission rate set at the time of order creation (defaulting to 0.02 if not present)
+      const commissionRate = order.commission || 0.02;
+      const earnings = order.total * commissionRate;
 
-    if (!error) fetchOrders();
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'completed',
+          seller_earnings: earnings
+        })
+        .eq('id', orderId);
+
+      if (error) {
+        console.error('Error updating order:', error);
+        setFeedback({ type: 'error', message: `Error: ${error.message}` });
+        return;
+      }
+      
+      setFeedback({ type: 'success', message: '¡Pedido confirmado y comisión acreditada!' });
+      fetchOrders();
+    } catch (err: any) {
+      console.error('Error handleConfirmOrder:', err);
+      setFeedback({ type: 'error', message: 'Error al confirmar el pedido' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -217,6 +278,12 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                 >
                   <TrendingUp className="w-4 h-4" /> Ventas y Comisiones
                 </button>
+                <button 
+                  onClick={() => setActiveTab('users')}
+                  className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-white text-primary-green shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  <UserCheck className="w-4 h-4" /> Usuarios
+                </button>
               </div>
 
               <div className="flex gap-4">
@@ -243,6 +310,56 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
 
             <div className="flex-1 overflow-y-auto p-8">
               <div className="max-w-6xl mx-auto space-y-8">
+                {activeTab === 'users' && (
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-8 border-b border-slate-50">
+                       <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-primary-green" /> Gestión de Usuarios y Vendedores
+                      </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Correo</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Rol</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Recomendado por</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acción</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {profiles.map((profile) => (
+                            <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-8 py-6 font-bold text-slate-800">{profile.name || 'Sin nombre'}</td>
+                              <td className="px-8 py-6 text-sm text-slate-500">{profile.email}</td>
+                              <td className="px-8 py-6">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                  profile.role === 'admin' ? 'bg-purple-100 text-purple-600' : 
+                                  profile.role === 'wholesale' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {profile.role === 'admin' ? 'Admin' : (profile.role === 'wholesale' ? 'Mayorista' : 'Cliente')}
+                                </span>
+                              </td>
+                              <td className="px-8 py-6 font-medium text-amber-600">
+                                {profile.referral_code || '—'}
+                              </td>
+                              <td className="px-8 py-6 text-right">
+                                <button 
+                                  onClick={() => setEditingProfile(profile)}
+                                  className="text-primary-green font-black text-[10px] uppercase tracking-widest hover:underline"
+                                >
+                                  Editar Perfil
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {activeTab === 'sales' && (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -253,7 +370,10 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                         <div>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Ventas</p>
                           <p className="text-3xl font-black text-slate-800 leading-none mt-1">
-                            ${orders.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.total, 0).toLocaleString()}
+                            ${orders
+                              .filter(o => o.status === 'completed')
+                              .reduce((sum, o) => sum + (Number(o.total) || 0), 0)
+                              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
                       </div>
@@ -264,7 +384,10 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                         <div>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comisiones (2%)</p>
                           <p className="text-3xl font-black text-slate-800 leading-none mt-1">
-                            ${orders.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.sellerEarnings, 0).toLocaleString()}
+                            ${orders
+                              .filter(o => o.status === 'completed')
+                              .reduce((sum, o) => sum + (Number(o.sellerEarnings) || 0), 0)
+                              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
                       </div>
@@ -298,6 +421,7 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                             <tr>
                               <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Pedido</th>
                               <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+                              <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendedor</th>
                               <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Monto Total</th>
                               <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comisión (2%)</th>
                               <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
@@ -318,8 +442,13 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
                                   <td className="px-8 py-6">
                                     <div className="flex flex-col">
                                       <span className="font-bold text-slate-800">{order.customerName}</span>
-                                      <span className="text-[10px] text-slate-400">{new Date(order.createdAt).toLocaleDateString()}</span>
+                                      <span className="text-[10px] text-slate-400">
+                                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                                      </span>
                                     </div>
+                                  </td>
+                                  <td className="px-8 py-6">
+                                    <span className="font-medium text-slate-600">{order.sellerName || 'Venta Directa'}</span>
                                   </td>
                                   <td className="px-8 py-6 font-black text-slate-800">${order.total.toFixed(2)}</td>
                                   <td className="px-8 py-6 text-emerald-600 font-black">
@@ -392,6 +521,65 @@ export const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean, onClose: 
             </div>
 
             <AnimatePresence>
+              {editingProfile && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[302] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+                >
+                  <motion.div 
+                    initial={{ scale: 0.95, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6"
+                  >
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-2xl font-bold text-slate-800">Gestionar Perfil</h3>
+                      <button onClick={() => setEditingProfile(null)}><X className="w-6 h-6 text-slate-400" /></button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Rol del Usuario</label>
+                        <select 
+                          value={editingProfile.role}
+                          onChange={(e) => setEditingProfile({...editingProfile, role: e.target.value})}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-green"
+                        >
+                          <option value="user">Usuario / Cliente</option>
+                          <option value="wholesale">Mayorista</option>
+                          <option value="seller">Vendedor</option>
+                          <option value="admin">Administrador</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Referido por (Nombre)</label>
+                        <input 
+                          type="text"
+                          placeholder="Nombre del Vendedor"
+                          value={editingProfile.referral_code || ''}
+                          onChange={(e) => setEditingProfile({...editingProfile, referral_code: e.target.value})}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary-green font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => handleUpdateProfile(editingProfile.id, { 
+                        role: editingProfile.role, 
+                        referral_code: editingProfile.referral_code || null 
+                      })}
+                      disabled={loading}
+                      className="w-full premium-btn bg-primary-green text-white h-14 flex items-center justify-center gap-2"
+                    >
+                      {loading ? <Loader2 className="animate-spin" /> : <Save className="w-5 h-5" />}
+                      Guardar Cambios
+                    </button>
+                  </motion.div>
+                </motion.div>
+              )}
+
               {editingProduct && (
                 <motion.div 
                   initial={{ opacity: 0 }}

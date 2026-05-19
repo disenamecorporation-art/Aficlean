@@ -44,16 +44,12 @@ export const UserDashboard: React.FC = () => {
         customerName: o.customer_name,
         sellerId: o.seller_id,
         sellerName: o.seller_name,
-        total: o.total,
+        total: Number(o.total || 0),
         status: o.status,
         createdAt: o.created_at,
-        commission: o.commission,
-        sellerEarnings: o.seller_earnings,
-        // We don't have items in the orders table directly in the original SQL, 
-        // usually it's a separate order_items table. 
-        // But the Order type in types.ts has items: CartItem[].
-        // For the dashboard summary, we don't necessarily need the full items.
-        items: [] 
+        commission: Number(o.commission || 0),
+        sellerEarnings: Number(o.seller_earnings || 0),
+        items: o.items || [] 
       }));
 
       setOrders(mappedOrders);
@@ -69,10 +65,10 @@ export const UserDashboard: React.FC = () => {
     completedOrders: orders.filter(o => o.status === 'completed').length,
     totalSpent: orders
       .filter(o => o.customerId === user?.id)
-      .reduce((acc, o) => acc + o.total, 0),
+      .reduce((acc, o) => acc + (Number(o.total) || 0), 0),
     totalEarnings: orders
       .filter(o => o.sellerId === user?.id && o.status === 'completed')
-      .reduce((acc, o) => acc + o.sellerEarnings, 0),
+      .reduce((acc, o) => acc + (Number(o.sellerEarnings) || 0), 0),
   };
 
   const getStatusColor = (status: string) => {
@@ -232,7 +228,7 @@ export const UserDashboard: React.FC = () => {
                     <tr key={order.id} className="hover:bg-slate-50/30 transition-colors">
                       <td className="px-8 py-6 font-mono text-xs font-bold text-slate-400">#{order.id.slice(0, 8)}</td>
                       <td className="px-8 py-6 text-sm font-bold text-slate-600">
-                        {new Date(order.createdAt).toLocaleDateString('es-ES')}
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString('es-ES') : 'N/A'}
                       </td>
                       <td className="px-8 py-6">
                         <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${order.sellerId === user?.id ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-50 text-slate-500'}`}>

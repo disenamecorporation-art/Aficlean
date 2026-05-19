@@ -25,6 +25,8 @@ export interface User {
   phone?: string;
   address?: string;
   taxId?: string; // RIF in Venezuela
+  referralCode?: string;
+  referredBy?: string;
 }
 
 export interface Order {

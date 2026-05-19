@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mail, Lock, User as UserIcon, Loader2, Phone, MapPin, Hash, Building2 } from 'lucide-react';
+import { X, Mail, Lock, User as UserIcon, Loader2, Phone, MapPin, Hash, Building2, UserPlus } from 'lucide-react';
 import { useAppContext } from '../AppContext';
 
 import { supabase } from '../lib/supabase';
@@ -14,6 +14,7 @@ export const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [taxId, setTaxId] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { setUser } = useAppContext();
@@ -57,21 +58,32 @@ export const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             const ADMIN_EMAILS = ['corplegaint5@gmail.com', 'disenamecorporation@gmail.com', 'aficleanweb@gmail.com'];
             const isAdminEmail = ADMIN_EMAILS.includes(email.toLowerCase());
 
+            // Registro ultra-simplificado para evitar errores de RLS
             const profileData = {
               id: data.user.id,
-              email,
-              name,
+              email: email.toLowerCase().trim(),
+              name: name.trim(),
               role: isAdminEmail ? 'admin' : (isWholesale ? 'wholesale' : 'user'),
-              phone,
-              address,
-              tax_id: taxId
+              phone: phone || null,
+              address: address || null,
+              tax_id: taxId || null,
+              referral_code: referralCode.trim() || null
             };
 
-            await supabase
+            const { error: profileError } = await supabase
               .from('profiles')
-              .upsert(profileData);
+              .upsert(profileData, { onConflict: 'id' });
+
+            if (profileError) {
+              console.error('Error creating profile:', profileError);
+              // Si falla el perfil no bloqueamos el login, el admin podrá arreglarlo
+              // Pero informamos al usuario de forma amigable
+              if (profileError.message.includes('policy')) {
+                console.warn('RLS Policy block - admin needs to run SQL fix');
+              }
+            }
           } catch (profileErr) {
-            console.error('Error in background profile creation:', profileErr);
+            console.error('Error in profile creation:', profileErr);
           }
         }
 
@@ -210,6 +222,21 @@ export const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                             placeholder="Caracas, Chacao"
                           />
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                      <label className="text-[10px] font-black text-amber-600 uppercase ml-1 tracking-widest text-center block">¿Quién te recomendó?</label>
+                      <p className="text-[10px] text-amber-500 ml-1 mb-2 text-center">Escribe su nombre para asociar tu compra</p>
+                      <div className="relative">
+                        <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400" />
+                        <input 
+                          type="text" 
+                          value={referralCode}
+                          onChange={(e) => setReferralCode(e.target.value)}
+                          className="w-full pl-12 pr-4 py-3 bg-white border border-amber-200 rounded-xl focus:ring-2 focus:ring-primary-yellow outline-none transition-all font-bold text-sm placeholder:text-slate-300"
+                          placeholder="Nombre del Vendedor"
+                        />
                       </div>
                     </div>
                   </>

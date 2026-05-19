@@ -97,7 +97,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             role: targetRole as any,
             phone: profile.phone,
             address: profile.address,
-            taxId: profile.tax_id
+            taxId: profile.tax_id,
+            referralCode: profile.referral_code,
+            referredBy: profile.referred_by
           });
         } else if (isHardcodedAdmin) {
           // Si no hay perfil pero es admin, lo creamos

@@ -15,14 +15,36 @@ export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     
     // Save order to database
     try {
-      await supabase.from('orders').insert([{
+      let sellerName = "Venta Directa";
+      let sellerId = null;
+
+      if (user?.id) {
+        // Obtenemos el nombre del referido que el usuario escribió al registrarse
+        // Lo guardamos en referral_code para simplificar
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('referral_code')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (profile?.referral_code) {
+          sellerName = profile.referral_code;
+        }
+      }
+
+      const orderData = {
         customer_id: user?.id || null,
         customer_name: user?.name || 'Cliente Web',
+        seller_id: null,
+        seller_name: sellerName,
         total: total,
         status: 'pending',
         commission: 0.02,
-        seller_earnings: 0
-      }]);
+        seller_earnings: 0,
+        items: cart
+      };
+
+      await supabase.from('orders').insert([orderData]);
     } catch (e) {
       console.error("Error saving order:", e);
     }
